@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscribe to {{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>Subscribe to {{ title }}</h1>
+    <form id="subscription-form" action="{{ url_for('subscribe') }}" method="POST">
+        <input type="hidden" name="book_title" value="{{ title }}">
+        <label for="email">Your Email:</label>
+        <input type="email" id="email" name="email" required>
+        <br>
+        <label for="chapters_per_email">Chapters per Email:</label>
+        <input type="number" id="chapters_per_email" name="chapters_per_email" value="1">
+        <br>
+        <label for="email_frequency">Email Frequency (days):</label>
+        <input type="number" id="email_frequency" name="email_frequency" value="7">
+        <br>
+        <div id="friends-emails"></div>
+        <button type="button" id="add-friend">Add Friend</button>
+        <button type="button" id="remove-friend" style="display:none;">Undo Add</button>
+        <br>
+        <p id="cost-display">Total Cost: $2.99/month</p>
+        <label for="card-element">Credit or debit card</label>
+        <div id="card-element"></div>
+        <br>
+        <button type="submit">Subscribe</button>
+    </form>
+
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        var stripe = Stripe('{{ key }}');
+        var elements = stripe.elements();
+        var card = elements.create('card');
+        card.mount('#card-element');
+
+        var form = document.getElementById('subscription-form');
+        var addFriendButton = document.getElementById('add-friend');
+        var removeFriendButton = document.getElementById('remove-friend');
+        var friendsEmailsDiv = document.getElementById('friends-emails');
+        var costDisplay = document.getElementById('cost-display');
+        var friendEmailCount = 0;
+
+        addFriendButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (friendEmailCount < 10) {
+                friendEmailCount++;
+                var newFriendEmail = document.createElement('div');
+                newFriendEmail.id = `friend-email-${friendEmailCount}`;
+                newFriendEmail.innerHTML = `<label for="friend-email-${friendEmailCount}">Friend's Email:</label><input type="email" id="friend-email-${friendEmailCount}" name="friend_emails">`;
+                friendsEmailsDiv.appendChild(newFriendEmail);
+                updateCost();
+                if (friendEmailCount > 0) {
+                    removeFriendButton.style.display = 'inline';
+                }
+            }
+        });
+
+        removeFriendButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (friendEmailCount > 0) {
+                var friendEmailDiv = document.getElementById(`friend-email-${friendEmailCount}`);
+                friendsEmailsDiv.removeChild(friendEmailDiv);
+                friendEmailCount--;
+                updateCost();
+                if (friendEmailCount === 0) {
+                    removeFriendButton.style.display = 'none';
+                }
+            }
+        });
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            stripe.createToken(card).then(function(result) {
+                if (result.error) {
+                    console.error(result.error.message);
+                } else {
+                    var hiddenInput = document.createElement('input');
+                    hiddenInput.setAttribute('type', 'hidden');
+                    hiddenInput.setAttribute('name', 'stripeToken');
+                    hiddenInput.setAttribute('value', result.token.id);
+                    form.appendChild(hiddenInput);
+                    form.submit();
+                }
+            });
+        });
+
+        function updateCost() {
+            var baseCost = 2.99;
+            var additionalEmailCost = 0.99;
+            var totalCost = baseCost + (Math.max(0, friendEmailCount - 2) * additionalEmailCost);
+            costDisplay.textContent = `Total Cost: $${totalCost.toFixed(2)}/month`;
+        }
+    </script>
+</body>
+</html>

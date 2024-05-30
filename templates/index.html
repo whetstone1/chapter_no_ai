@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Subscription</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>Subscribe to a Classic Book</h1>
+    <div class="book-grid">
+        {% for book in books %}
+            <div class="book-item">
+                <a href="{{ url_for('book', title=book.title) }}">
+                    <img src="https://www.gutenberg.org/cache/epub/{{ book.id }}/pg{{ book.id }}.cover.medium.jpg" alt="{{ book.title }}" onerror="this.src='https://via.placeholder.com/150'">
+                    <p>{{ book.title }}</p>
+                    <p>{{ book.author }}</p>
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
