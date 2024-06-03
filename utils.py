@@ -15,24 +15,79 @@ stripe.api_key = None  # This will be set in the app initialization
 def initialize_utils(app):
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
-def get_book_text(gutenberg_id):
+import requests
+from bs4 import BeautifulSoup
+
+def get_book_text(book_id):
     try:
-        url = f"https://www.gutenberg.org/files/{gutenberg_id}/{gutenberg_id}-h/{gutenberg_id}-h.htm"
+        # Fetch the HTML content of the book
+        url = f"https://www.gutenberg.org/files/{book_id}/{book_id}-h/{book_id}-h.htm"
         response = requests.get(url)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
-        book_title = soup.find('h1').text.strip()
+
+        # Extract the book title
+        book_title = soup.find('h1').get_text(strip=True)
+        print(f"Book title: {book_title}")
         chapters = {}
-        chapter_tags = soup.find_all('a', href=True)
-        for tag in chapter_tags:
-            if 'chap' in tag['href']:
-                chapter_id = tag['href']
-                chapter_text = tag.find_next('div').text.strip()
-                chapters[chapter_id] = chapter_text
+
+        # Find all chapter tags by div with class 'chapter', a tags with specific href patterns
+        chapter_divs = soup.find_all('div', class_='chapter')
+        chapter_a_tags_link2HCH = soup.find_all('a', href=lambda x: x and x.startswith('#link2HCH'))
+        chapter_a_tags_chapter = soup.find_all('a', href=lambda x: x and x.startswith('#Chapter_'))
+
+        # Process div.chapter tags
+        if chapter_divs:
+            print(f"Found {len(chapter_divs)} chapter markers using 'div.chapter'")
+            for i, tag in enumerate(chapter_divs):
+                if tag.find('p'):  # Ensure the chapter has <p> tags
+                    chapter_title = f"Chapter {i+1}"
+                    chapter_content = tag.get_text(separator="\n").strip()
+                    chapters[chapter_title] = chapter_content
+                    print(f"Extracted content for {chapter_title}: {chapter_content[:500]}...")  # Print the first 500 characters
+
+        # Process a[href^="#link2HCH"] tags
+        elif chapter_a_tags_link2HCH:
+            print(f"Found {len(chapter_a_tags_link2HCH)} chapter markers using 'a[href^=\"#link2HCH\"]'")
+            for i, tag in enumerate(chapter_a_tags_link2HCH):
+                chapter_title = f"Chapter {i+1}"
+                chapter_content = []
+
+                # Collect all text nodes until the next chapter marker
+                next_node = tag.find_next_sibling()
+                while next_node and not (next_node.name == 'a' and next_node.get('href') and next_node['href'].startswith('#link2HCH')):
+                    if next_node.name and next_node.get_text(strip=True):
+                        chapter_content.append(next_node.get_text(strip=True))
+                    next_node = next_node.find_next_sibling()
+
+                chapters[chapter_title] = '\n'.join(chapter_content)
+                print(f"Extracted content for {chapter_title}: {chapters[chapter_title][:500]}...")  # Print the first 500 characters
+
+        # Process a[href^="#Chapter_"] tags
+        elif chapter_a_tags_chapter:
+            print(f"Found {len(chapter_a_tags_chapter)} chapter markers using 'a[href^=\"#Chapter_\"]'")
+            for i, tag in enumerate(chapter_a_tags_chapter):
+                chapter_title = f"Chapter {i+1}"
+                chapter_content = []
+
+                # Collect all text nodes until the next chapter marker
+                next_node = tag.find_next_sibling()
+                while next_node and not (next_node.name == 'a' and next_node.get('href') and next_node['href'].startswith('#Chapter_')):
+                    if next_node.name and next_node.get_text(strip=True):
+                        chapter_content.append(next_node.get_text(strip=True))
+                    next_node = next_node.find_next_sibling()
+
+                chapters[chapter_title] = '\n'.join(chapter_content)
+                print(f"Extracted content for {chapter_title}: {chapters[chapter_title][:500]}...")  # Print the first 500 characters
+
+        else:
+            print("No chapter markers found.")
+            return book_title, chapters
+
         return book_title, chapters
     except requests.RequestException as e:
         print(f"Error fetching book: {e}")
-        return None, {}
+        return None, None
 
 def send_email(app, recipients, subject, body):
     try:

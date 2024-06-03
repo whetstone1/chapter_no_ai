@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for
 from config import Config
 from models import db, User
 from utils import initialize_utils, get_book_text, split_into_chapters, schedule_email, send_confirmation_email
+import books
 from books import BOOKS
 import stripe
 from threading import Thread
@@ -12,10 +13,6 @@ db.init_app(app)
 initialize_utils(app)
 stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
-""" @app.before_first_request
-def create_tables():
-    db.create_all() """
-
 @app.route('/')
 def index():
     return render_template('index.html', books=BOOKS)
@@ -23,7 +20,6 @@ def index():
 @app.route('/book/<title>')
 def book(title):
     return render_template('book.html', title=title, key=app.config['STRIPE_PUBLIC_KEY'])
-
 @app.route('/subscribe', methods=['POST'])
 def subscribe():
     data = request.form
@@ -107,6 +103,9 @@ def subscribe():
 
     # Fetch the book text and split into chapters
     book_id = next((book['id'] for book in BOOKS if book['title'] == book_title), None)
+    if not book_id:
+        return jsonify({'error': 'Book not found'}), 404
+
     book_title, chapters_dict = get_book_text(book_id)
     if not book_title or not chapters_dict:
         return jsonify({'error': 'Failed to fetch book text'}), 500
@@ -116,9 +115,7 @@ def subscribe():
 
     # Send confirmation email to the main email and all friends with the first chapter
     recipients = [email] + friend_emails
-    print(f"Sending confirmation email to: {recipients}")
     send_confirmation_email(app, recipients, book_title, first_chapter)
-    print(f"Sent confirmation email with first chapter to {', '.join(recipients)}")
 
     # Schedule the email sending
     email_thread = Thread(target=schedule_email, args=(app, user.id, chapters, book_title, recipients))

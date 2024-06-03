@@ -10,6 +10,5 @@ class User(db.Model):
     email_frequency = db.Column(db.Integer, default=7)
     stripe_customer_id = db.Column(db.String(120))
     book_title = db.Column(db.String(120))
-    chapter_preludes = db.Column(db.Boolean, default=False)  # New field
 
 # Run migration scripts to update the database schema
