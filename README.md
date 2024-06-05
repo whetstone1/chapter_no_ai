@@ -1,7 +1,7 @@
 # chapter_no_ai
 The Chapter without AI functionalities 
 
-In a Nutshell: Subscribe Classic book with your friends.
+In a Nutshell: Subscribe to a Classic book with your friends.
 
 What we do: 
 
